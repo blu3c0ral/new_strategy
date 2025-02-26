@@ -16,7 +16,6 @@ COPY persistence ./persistence/
 COPY recorders ./recorders/
 COPY __init__.py .
 COPY definitions.py .
-COPY intraday_prices.csv .
 COPY alpaca_recorder_function.py.py .
 
 # Expose the port

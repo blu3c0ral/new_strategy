@@ -22,13 +22,10 @@ def handler():
 
 def main(event, context):
     # Get config from file config.ini
-    config = configparser.ConfigParser()
-
-    try:
-        config.read("config.ini")
-    except configparser.Error as e:
-        print(f"Error reading INI file: {e}")
-        return {"error": f"Error reading INI file: {str(e)}"}
+    config = {
+        "key": os.environ.get("ALPACA_KEY"),
+        "secret": os.environ.get("ALPACA_SECRET"),
+    }
 
     pl = GCSPersistence(
         bucket_name="alpaca_intraday_data",
@@ -40,7 +37,7 @@ def main(event, context):
 
     alpaca_recorder = AlpacaSnapshotRecorder(
         stocks=["SPY", "VOO"],
-        config=dict(config.items("alpaca_account")),
+        config=config,
         persistences=[pl],
     )
 
