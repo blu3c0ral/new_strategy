@@ -16,10 +16,10 @@ COPY persistence ./persistence/
 COPY recorders ./recorders/
 COPY __init__.py .
 COPY definitions.py .
-COPY alpaca_recorder_function.py.py .
+COPY alpaca_recorder_function.py .
 
 # Expose the port
 EXPOSE 8080
 
 # Run the Flask app
-CMD exec python alpaca_recorder_function.py.py
+CMD exec python alpaca_recorder_function.py
