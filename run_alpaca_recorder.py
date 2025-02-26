@@ -3,7 +3,7 @@ from google.cloud import secretmanager
 from recorders.alpaca_recorder import AlpacaSnapshotRecorder
 from persistence.gcp_cloud_storage import GCSPersistence
 
-PROJECT_ID = "market-data-model-20"
+PROJECT_ID = 797853389585
 
 
 def access_secret(project_id, secret_id, version_id="latest"):
