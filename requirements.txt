@@ -1,3 +1,4 @@
 pytz
 alpaca-py
 google-cloud-storage
+flask

@@ -88,3 +88,19 @@ class MarketRecordsLogger(ABC):
         finally:
             self.disconnect()
             print("Logger stopped.")
+
+    def run_once(self):
+        """Log prices once and stop."""
+        try:
+            self.connect()
+        except Exception as e:
+            print(f"Failed to connect: {e}")
+
+        try:
+            self._log_records()
+            self._rotate_files()
+        except Exception as e:
+            print(f"Failed to log records: {e}")
+        finally:
+            self.disconnect()
+            print("Logger stopped.")
