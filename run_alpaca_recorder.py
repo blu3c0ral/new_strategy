@@ -19,8 +19,6 @@ def main():
         "secret": access_secret(PROJECT_ID, "ALPACA_SECRET"),
     }
 
-    print(config["key"])
-
     pl = GCSPersistence(
         bucket_name="alpaca_intraday_data",
         gcs_prefix="stocks/intraday_data",
