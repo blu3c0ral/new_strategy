@@ -15,13 +15,12 @@ COPY brokerage_systems ./brokerage_systems/
 COPY persistence ./persistence/
 COPY recorders ./recorders/
 COPY __init__.py .
-COPY config.ini .
 COPY definitions.py .
 COPY intraday_prices.csv .
-COPY run_alpaca_recorder.py .
+COPY alpaca_recorder_function.py.py .
 
 # Expose the port
 EXPOSE 8080
 
 # Run the Flask app
-CMD exec python run_alpaca_recorder.py
+CMD exec python alpaca_recorder_function.py.py
