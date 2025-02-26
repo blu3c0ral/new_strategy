@@ -4,7 +4,7 @@ from recorders.alpaca_recorder import AlpacaSnapshotRecorder
 from persistence.gcp_cloud_storage import GCSPersistence
 
 
-def main(event, context):
+def main():
     # Get config from file config.ini
     config = configparser.ConfigParser()
 
@@ -28,4 +28,4 @@ def main(event, context):
         persistences=[pl],
     )
 
-    alpaca_recorder.run_once()
+    alpaca_recorder.run()
