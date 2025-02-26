@@ -2,3 +2,4 @@ pytz
 alpaca-py
 google-cloud-storage
 flask
+ib_insync
