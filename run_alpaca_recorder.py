@@ -1,18 +1,14 @@
-import configparser
+import os
 
 from recorders.alpaca_recorder import AlpacaSnapshotRecorder
 from persistence.gcp_cloud_storage import GCSPersistence
 
 
 def main():
-    # Get config from file config.ini
-    config = configparser.ConfigParser()
-
-    try:
-        config.read("config.ini")
-    except configparser.Error as e:
-        print(f"Error reading INI file: {e}")
-        exit(1)
+    config = {
+        "key": os.environ.get("ALPACA_KEY"),
+        "secret": os.environ.get("ALPACA_SECRET"),
+    }
 
     pl = GCSPersistence(
         bucket_name="alpaca_intraday_data",
@@ -24,8 +20,12 @@ def main():
 
     alpaca_recorder = AlpacaSnapshotRecorder(
         stocks=["SPY", "VOO"],
-        config=dict(config.items("alpaca_account")),
+        config=config,
         persistences=[pl],
     )
 
     alpaca_recorder.run()
+
+
+if __name__ == "__main__":
+    main()
