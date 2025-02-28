@@ -2,6 +2,7 @@ import time
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Union
+import datetime
 
 from definitions import (
     EST_TRADING_SESSION_LOGGER_TIMINGS,
@@ -23,10 +24,18 @@ class MarketRecordsLogger(ABC):
             Union[int, List[LoggerTiming]]
         ] = EST_TRADING_SESSION_LOGGER_TIMINGS,
         default_timing: int = 1 * 60,  # Seconds
+        hours_in_day: Optional[
+            List[datetime.time]
+        ] = None,  # List of times to log data. By the minutes (seconds are ignored)
     ):
         self._stocks = stocks
         self._log_intervals = log_intervals
         self._log_interval = default_timing
+        self._hours_in_day = (
+            [time.replace(second=0) for time in hours_in_day]
+            if hours_in_day is not None
+            else None
+        )
         self._persistences = persistences
 
     @abstractmethod
@@ -43,7 +52,7 @@ class MarketRecordsLogger(ABC):
         """Fetch and log prices using all configured persistence layers."""
         prices = self._get_records()
         for persistence in self._persistences:
-            persistence.save_ticker_records(prices)
+            persistence.save_data(prices)
 
     def _rotate_files(self):
         """Rotate files in all configured persistence layers."""
@@ -65,23 +74,36 @@ class MarketRecordsLogger(ABC):
 
         try:
             while True:
-                self._log_records()
-                self._rotate_files()
-
-                if self._log_intervals is not None:
-                    if isinstance(self._log_intervals, int):
-                        time.sleep(self._log_intervals)
+                if self._hours_in_day is None:
+                    if self._log_intervals is not None:
+                        if isinstance(self._log_intervals, int):
+                            time.sleep(self._log_intervals)
+                        else:
+                            slept = False
+                            for timing in self._log_intervals:
+                                if timing.is_logging_time():
+                                    time.sleep(timing.get_log_interval())
+                                    slept = True
+                                    break
+                            if not slept:
+                                time.sleep(self._log_interval)
                     else:
-                        slept = False
-                        for timing in self._log_intervals:
-                            if timing.is_logging_time():
-                                time.sleep(timing.get_log_interval())
-                                slept = True
-                                break
-                        if not slept:
-                            time.sleep(self._log_interval)
+                        time.sleep(self._log_interval)
+
+                    self._log_records()
+                    self._rotate_files()
                 else:
-                    time.sleep(self._log_interval)
+                    now = datetime.datetime.now().time()
+                    time_now = datetime.time(hour=now.hour, minute=now.minute)
+                    if time_now in self._hours_in_day:
+                        print(f"Logging at {time_now}")
+
+                        self._log_records()
+                        self._rotate_files()
+
+                        time.sleep(
+                            60
+                        )  # Sleep for a minute to avoid logging multiple times in the same minute
 
         except KeyboardInterrupt:
             print("Stopping logger...")

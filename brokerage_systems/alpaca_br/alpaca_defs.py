@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from typing import NamedTuple
 from definitions import BarData, LoggerRecord, QuoteData, TradeData
 
@@ -32,3 +33,11 @@ class AlpacaSnapshot(NamedTuple):
             ),
             symbol=data["symbol"],
         )
+
+
+def get_config_from_env(key="ALPACA_KEY", secret="ALPACA_SECRET") -> dict:
+    """Get the Alpaca API key and secret from environment variables."""
+    return {
+        "key": os.getenv(key),
+        "secret": os.getenv(secret),
+    }

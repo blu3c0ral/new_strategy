@@ -2,13 +2,56 @@ import csv
 from datetime import datetime, time
 from io import StringIO
 import json
-import shutil
 from typing import List, NamedTuple
 from google.cloud import storage
+from google.api_core.exceptions import GoogleAPIError
 import pytz
 
 from definitions import TickerRecord
 from persistence.persistence import MAX_FILE_SIZE_DEFAULT, PersistenceLayer
+
+
+def get_bucket_size(bucket_name):
+    """
+    Calculate the total size of all objects in a GCS bucket.
+
+    Args:
+        bucket_name (str): Name of the GCS bucket
+
+    Returns:
+        tuple: (size_bytes, size_human_readable)
+    """
+    try:
+        # Initialize the GCS client
+        storage_client = storage.Client()
+
+        # Get the bucket
+        bucket = storage_client.get_bucket(bucket_name)
+
+        # List all blobs in the bucket
+        blobs = bucket.list_blobs()
+
+        # Calculate total size
+        total_size_bytes = 0
+        for blob in blobs:
+            total_size_bytes += blob.size
+
+        # Convert to human-readable format
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        size = float(total_size_bytes)
+        unit_index = 0
+
+        while size >= 1024 and unit_index < len(units) - 1:
+            size /= 1024
+            unit_index += 1
+
+        size_human_readable = f"{size:.2f} {units[unit_index]}"
+
+        return total_size_bytes, size_human_readable
+
+    except GoogleAPIError as e:
+        print(f"Error accessing bucket {bucket_name}: {e}")
+        return None, None
 
 
 def recursive_asdict(obj):
@@ -104,9 +147,7 @@ class GCSPersistence(PersistenceLayer):
         # print(new_data)
 
         # Upload back to GCS
-        blob.upload_from_string(
-            json.dumps(new_data, indent=4), content_type="application/json"
-        )
+        blob.upload_from_string(json.dumps(new_data), content_type="application/json")
         print(
             f"{datetime.now().isoformat()}\tAppended JSON data to GCS: gs://{self.bucket.name}/{self.filename}"
         )
@@ -221,3 +262,57 @@ class GCSPersistence(PersistenceLayer):
             )
 
             self.filename = new_filename
+
+    def get_bucket_size(self):
+        """
+        Calculate the total size of all objects in the GCS bucket.
+
+        Returns:
+            tuple: (size_bytes, size_human_readable)
+        """
+        return get_bucket_size(self.bucket.name)
+
+    def _get_all_buckets_size():
+        """
+        Calculate the total size of all objects in all GCS buckets.
+
+        Returns:
+            dict: {bucket_name: (size_bytes, size_human_readable)}
+        """
+        try:
+            # Initialize the GCS client
+            storage_client = storage.Client()
+
+            # Get all buckets
+            buckets = storage_client.list_buckets()
+
+            # Calculate total size for each bucket
+            bucket_sizes = {}
+            for bucket in buckets:
+                total_size_bytes, size_human_readable = get_bucket_size(bucket.name)
+                bucket_sizes[bucket.name] = (total_size_bytes, size_human_readable)
+
+            total_size = sum(size[0] for size in bucket_sizes.values())
+
+            return bucket_sizes
+
+        except GoogleAPIError as e:
+            print(f"Error accessing GCS buckets: {e}")
+            return None
+
+
+if __name__ == "__main__":
+    # Test the GCS persistence layer
+    gcs_persistence = GCSPersistence(
+        bucket_name="alpaca_intraday_data",
+        filename="price_data",
+        format="json",
+        max_file_size=1e6,
+        file_per_day=True,
+    )
+
+    # Test getting the bucket size
+    print(gcs_persistence.get_bucket_size())
+
+    # Test getting the size of all buckets
+    print(GCSPersistence._get_all_buckets_size())
