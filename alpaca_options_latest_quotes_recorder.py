@@ -2,7 +2,7 @@ import datetime
 from zoneinfo import ZoneInfo
 from google.cloud import secretmanager
 
-from recorders.alpaca_recorder import AlpacaTradesRecorder
+from recorders.alpaca_recorder import AlpacaOptionsChainRecorder
 from persistence.gcp_bigquery import BigQueryPersistence
 
 PROJECT_ID = 797853389585
@@ -24,19 +24,14 @@ def main():
     pl = BigQueryPersistence(
         project_id="market-data-model-20",
         dataset_id="alpaca_dataset",
-        table_id="trades",
+        table_id="options_latest_quote_chain",
     )
 
-    hours_in_day = datetime.time(0, 23, 0, tzinfo=ZoneInfo("America/New_York"))
-
-    alpaca_recorder = AlpacaTradesRecorder(
+    alpaca_recorder = AlpacaOptionsChainRecorder(
         stocks=["SPY", "VOO", "VTI", "SCHB"],
         config=config,
         persistences=[pl],
-        hours_in_day=[hours_in_day],
     )
-
-    # alpaca_recorder.run()
 
     alpaca_recorder.run_once()
 

@@ -5,10 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Module",
+            "name": "Python: Alpaca Main",
             "type": "debugpy",
             "request": "launch",
-            "module": "ibkr_recorder.py"
-        }
+            "module": "brokerage_systems.alpaca_br.alpaca_main",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "ALPACA_KEY": "AKU9MK5QKWOGLBRBP94B",
+                "ALPACA_SECRET": "ERsWSD83N0VnV6Dt1xAIAG5o0KdnKxFKWUBWgNg7"
+            }
+        },
     ]
 }

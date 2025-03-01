@@ -1,14 +1,20 @@
 from datetime import timedelta
 from datetime import datetime
+import json
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 from alpaca.data.historical.stock import StockHistoricalDataClient
+from alpaca.data.historical.option import OptionHistoricalDataClient
 
 from alpaca.data.requests import (
     StockSnapshotRequest,
     StockTradesRequest,
     StockLatestQuoteRequest,
+    StockQuotesRequest,
+    OptionChainRequest,
 )
+
+import pandas as pd
 
 
 def example_snapshots():
@@ -126,6 +132,118 @@ def get_bar_example():
     print(df)
 
 
+def recursive_asdict(obj):
+    """Recursively converts NamedTuple instances into dictionaries."""
+    if hasattr(obj, "_asdict"):  # If obj is a NamedTuple
+        return {key: recursive_asdict(value) for key, value in obj._asdict().items()}
+    elif isinstance(obj, list):  # If obj is a list, process each item
+        return [recursive_asdict(item) for item in obj]
+    else:
+        return obj  # Return as-is if not a NamedTuple or list
+
+
+def get_options_chain_examples():
+    from .alpaca_defs import AlpacaSnapshot, get_config_from_env
+
+    from alpaca.data.requests import OptionChainRequest
+
+    alpaca_config = get_config_from_env()
+
+    ALPACA_API_KEY = alpaca_config["key"]
+    ALPACA_SECRET_KEY = alpaca_config["secret"]
+
+    data_api_url = None
+
+    symbol = "SPY"
+
+    option_historical_data_client = OptionHistoricalDataClient(
+        ALPACA_API_KEY, ALPACA_SECRET_KEY, url_override=data_api_url, raw_data=False
+    )
+
+    req = OptionChainRequest(
+        underlying_symbol=symbol,
+        # feed="indicative",
+    )
+
+    data = option_historical_data_client.get_option_chain(req)
+
+    # Convert to JSON
+    print(dir(data[list(data.keys())[0]]))
+
+    json_data = data[list(data.keys())[0]].latest_quote
+
+    # Save to a file
+    with open("option_chain.json", "w") as f:
+        f.write(json.dumps(json_data))
+
+
+def get_options_latest_trade_examples():
+    from .alpaca_defs import AlpacaSnapshot, get_config_from_env
+
+    from alpaca.data.requests import (
+        OptionChainRequest,
+        OptionLatestTradeRequest,
+        OptionLatestQuoteRequest,
+    )
+
+    alpaca_config = get_config_from_env()
+
+    ALPACA_API_KEY = alpaca_config["key"]
+    ALPACA_SECRET_KEY = alpaca_config["secret"]
+
+    data_api_url = None
+
+    symbol = "SPY250303C00593000"
+
+    option_historical_data_client = OptionHistoricalDataClient(
+        ALPACA_API_KEY, ALPACA_SECRET_KEY, url_override=data_api_url, raw_data=False
+    )
+
+    req = OptionLatestTradeRequest(
+        symbol_or_symbols=symbol,
+        # feed="indicative",
+    )
+
+    data = option_historical_data_client.get_option_latest_trade(req)
+
+    # Convert to JSON
+    print(data)
+
+
+def get_options_latest_quote_examples():
+    from .alpaca_defs import AlpacaSnapshot, get_config_from_env
+
+    from alpaca.data.requests import (
+        OptionChainRequest,
+        OptionLatestTradeRequest,
+        OptionLatestQuoteRequest,
+        OptionSnapshotRequest,
+    )
+
+    alpaca_config = get_config_from_env()
+
+    ALPACA_API_KEY = alpaca_config["key"]
+    ALPACA_SECRET_KEY = alpaca_config["secret"]
+
+    data_api_url = None
+
+    symbol = "SPY250303C00593000"
+
+    option_historical_data_client = OptionHistoricalDataClient(
+        ALPACA_API_KEY, ALPACA_SECRET_KEY, url_override=data_api_url, raw_data=False
+    )
+
+    req = OptionSnapshotRequest(
+        symbol_or_symbols=symbol,
+        # feed="indicative",
+    )
+
+    data = option_historical_data_client.get_option_snapshot(req)
+
+    # Convert to JSON
+    print(data)
+
+
 class AlpacaClient:
     """A client for fetching stock market data from Alpaca."""
 
@@ -149,6 +267,9 @@ class AlpacaClient:
         for _ in range(self._retries):
             try:
                 self._client = StockHistoricalDataClient(
+                    api_key, secret_key, url_override=data_api_url
+                )
+                self._option_client = OptionHistoricalDataClient(
                     api_key, secret_key, url_override=data_api_url
                 )
                 break
@@ -203,7 +324,9 @@ class AlpacaClient:
         else:
             raise ConnectionError("Failed to fetch trade data.")
 
-    def get_last_qoute(self, symbols: List[str], feed: str = "iex"):
+    def get_qoutes(
+        self, symbols: List[str], start: datetime, end: datetime, feed: str = "iex"
+    ):
         """
         Fetches last quote data for given stock symbols.
 
@@ -214,7 +337,7 @@ class AlpacaClient:
 
         for _ in range(self._retries):
             try:
-                req = StockLatestQuoteRequest(symbol_or_symbols=symbols, feed=feed)
+                req = StockQuotesRequest(symbol_or_symbols=symbols, feed=feed)
                 return self._client.get_stock_quotes(req).df
             except Exception as e:
                 print(f"Failed to fetch last quote data: {e}")
@@ -222,6 +345,69 @@ class AlpacaClient:
                 continue
         else:
             raise ConnectionError("Failed to fetch last quote data.")
+
+    def get_option_chain(
+        self, underlying_symbol: str, as_rows: bool = True, as_df: bool = True
+    ):
+        """
+        Fetches option chain data for a given underlying symbol.
+
+        :param underlying_symbol: The underlying symbol to retrieve option chain data for.
+        :param as_rows: Whether to return the data as a list of rows (default: True).
+        :param as_df: Whether to return the data as a DataFrame (default: True). Relevant only for as_rows=True.
+
+        :return: Option chain data from Alpaca API.
+        """
+
+        data = {}
+
+        for _ in range(self._retries):
+            try:
+                req = OptionChainRequest(underlying_symbol=underlying_symbol)
+                data = self._option_client.get_option_chain(req)
+                break
+            except Exception as e:
+                print(f"Failed to fetch option chain data: {e}")
+                print("Retrying...")
+                continue
+        else:
+            raise ConnectionError("Failed to fetch option chain data.")
+
+        if not as_rows:
+            return data
+
+        # UTC time
+        now = datetime.now(ZoneInfo("UTC"))
+
+        symbols = list(data.keys())
+        rows = []
+        for symbol in symbols:
+            json_obj = json.loads(data[symbol].latest_quote.model_dump_json())
+            json_obj["implied_volatility"] = data[symbol].implied_volatility
+            json_obj["delta"] = (
+                data[symbol].greeks.delta if data[symbol].greeks else None
+            )
+            json_obj["gamma"] = (
+                data[symbol].greeks.gamma if data[symbol].greeks else None
+            )
+            json_obj["theta"] = (
+                data[symbol].greeks.theta if data[symbol].greeks else None
+            )
+            json_obj["vega"] = data[symbol].greeks.vega if data[symbol].greeks else None
+            json_obj["rho"] = data[symbol].greeks.rho if data[symbol].greeks else None
+            json_obj["insert_timestamp"] = now
+            rows.append(json_obj)
+
+        if as_df:
+            df = pd.DataFrame(rows)
+
+            # Correct timestamps columns types
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            df["insert_timestamp"] = pd.to_datetime(df["insert_timestamp"], utc=True)
+
+            return df
+
+        return rows
 
 
 if __name__ == "__main__":
@@ -235,5 +421,5 @@ if __name__ == "__main__":
     alpaca_client = AlpacaClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
 
     # Get snapshot data
-    symbols = ["SPY"]
-    print(alpaca_client.get_snapshot(symbols))
+    symbol = "SPY"
+    print(alpaca_client.get_option_chain(symbol))
